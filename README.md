@@ -11,21 +11,13 @@ Stole code from [Rdimo](https://github.com/Rdimo/Hazard-Token-Grabber-V2) and mo
 
 | Supported browsers  | Is checked |
 | ------------- | ------------- |
-| Opera | Not checked ❌ |
+| Opera | Checked ✅ |
 | Opera GX | Checked ✅ |
-| Amigo | Not checked ❌ |
-| Torch | Not checked ❌ |
-| Kometa | Not checked ❌ |
-| Orbitum | Not checked ❌ |
-| CentBrowser | Not checked ❌ |
-| 7Star | Not checked ❌ |
-| Sputnik | Not checked ❌ |
+| CentBrowser | Checked ✅ |
 | Vivaldi | Checked ✅ |
-| Chrome SxS | Not checked ❌ |
 | Chrome | Checked ✅ |
-| Epic Privacy Browser | Not checked ❌ |
+| Epic Privacy Browser | Checked ✅ |
 | Microsoft Edge | Checked ✅ |
-| Uran | Not checked ❌ |
 | Yandex | Checked ✅(cookies) |
 | Brave | Checked ✅ |
 | Iridium | Checked ✅ |
