@@ -20,15 +20,15 @@ Stole code from [Rdimo](https://github.com/Rdimo/Hazard-Token-Grabber-V2) and mo
 | CentBrowser | Not checked ❌ |
 | 7Star | Not checked ❌ |
 | Sputnik | Not checked ❌ |
-| Vivaldi | Not checked ❌ |
+| Vivaldi | Checked ✅ |
 | Chrome SxS | Not checked ❌ |
 | Chrome | Checked ✅ |
 | Epic Privacy Browser | Not checked ❌ |
-| Microsoft Edge | Not checked ❌ |
+| Microsoft Edge | Checked ✅ |
 | Uran | Not checked ❌ |
-| Yandex | Not checked ❌ |
+| Yandex | Checked ✅(cookies) |
 | Brave | Checked ✅ |
-| Iridium | Not checked ❌ |
+| Iridium | Checked ✅ |
 | Firefox | Checked ✅ |
 
 ## Compile
