@@ -16,7 +16,6 @@ import subprocess
 from sys import argv
 from pathlib import Path
 from PIL import ImageGrab
-from random import choice
 from struct import unpack
 from base64 import b64decode
 from tempfile import mkdtemp
