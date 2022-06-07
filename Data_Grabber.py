@@ -45,7 +45,8 @@ config = {
     'hide_self': False,
     # does it's best to prevent the program from being debugged and drastically reduces the changes of your webhook being found
     'anti_debug': True,
-    # enables self destruct of this file after it has been run
+    # enables self destruct of this file after it has been run. (NOTE: YOU CANNOT USE THIS IF YOU ARE CONVERTING FILE TO EXE, YOU CAN OBFUSCATE THE .py BUT NOT CONVERT
+    # IT TO EXE. IF YOU WANT TO CONVERT IT TO EXE THEN KEEP THIS FALSE SINCE YOU CANNOT USE THIS WITH EXE [cause exe cannot delete itself since its running])
     'self_destruct': False,
     # this list of programs will be killed if hazard detects that any of these are running, you can add more if you want
     'blackListedPrograms':
